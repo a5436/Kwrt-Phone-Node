@@ -42,7 +42,6 @@ jobs:
       - name: Apply Kwrt and TK CrossBorder customization
         shell: bash
         run: |
-          set -e
           function git_clone_path() {
             local branch="$1" rurl="$2" mv_mode="$3"
             if [[ "$mv_mode" != "mv" ]]; then shift 2; else shift 3; fi
@@ -68,8 +67,8 @@ jobs:
           bash devices/${TARGET}/diy.sh
           cp -Rf ./diy/* ./ 2>/dev/null || true
           cp -rn devices/common/patches devices/${TARGET}/ 2>/dev/null || true
-          find "devices/${TARGET}/patches" -maxdepth 1 -type f -name '*.revert.patch' -print0 2>/dev/null | sort -z | xargs -0 -r -n 1 sh -c 'patch -d . -R --no-backup-if-mismatch -p1 -F 1 -i "$0"'
-          find "devices/${TARGET}/patches" -maxdepth 1 -type f -name '*.patch' ! -name '*.revert.patch' ! -name '*.bin.patch' -print0 2>/dev/null | sort -z | xargs -0 -r -n 1 sh -c 'patch -d . --no-backup-if-mismatch -p1 -F 1 -i "$0"'
+          find "devices/${TARGET}/patches" -maxdepth 1 -type f -name '*.revert.patch' -print0 2>/dev/null | sort -z | xargs -0 -r -n 1 sh -c 'patch -d . -R --no-backup-if-mismatch -p1 -F 1 -i "$0"' || true
+          find "devices/${TARGET}/patches" -maxdepth 1 -type f -name '*.patch' ! -name '*.revert.patch' ! -name '*.bin.patch' -print0 2>/dev/null | sort -z | xargs -0 -r -n 1 sh -c 'patch -d . --no-backup-if-mismatch -p1 -F 1 -i "$0"' || true
 
       - name: Resolve configuration
         working-directory: openwrt
