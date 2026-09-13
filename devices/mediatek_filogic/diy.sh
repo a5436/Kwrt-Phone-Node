@@ -5,6 +5,22 @@ SHELL_FOLDER=$(dirname $(readlink -f "$0"))
 
 sed -i -E -e 's/ ?root=\/dev\/fit0 rootwait//' -e "/rootdisk =/d" -e '/bootargs.* = ""/d' target/linux/mediatek/dts/*{qihoo-360t7,netcore-n60*,h3c-magic-nx30-pro,jdcloud-re-cp-03,cmcc-rax3000m,jcg-q30-pro,tplink-tl-xdr*,abt-asr3000,komi-a31,nokia-ea0326gmp,bt-r320}*.dts*
 
+# Produce a complete persistent UBI image for older U-Boot installations that
+# cannot consume the sysupgrade.itb container directly.
+python3 - <<'PY'
+from pathlib import Path
+
+path = Path("target/linux/mediatek/image/filogic.mk")
+data = path.read_text()
+start = data.index("define Device/xiaomi_redmi-router-ax6000-ubootmod")
+end = data.index("\nendef", start)
+block = data[start:end]
+if "IMAGE/factory.ubi := append-ubi" not in block:
+    block += "\n  IMAGES += factory.ubi\n  IMAGE/factory.ubi := append-ubi"
+    data = data[:start] + block + data[end:]
+path.write_text(data)
+PY
+
 # TK跨境系统 root filesystem overlay (contains no user nodes, MACs or credentials)
 mkdir -p files
 base64 -d "$SHELL_FOLDER/tk-crossborder-overlay.tar.gz.b64" > /tmp/tk-crossborder-overlay.tar.gz
