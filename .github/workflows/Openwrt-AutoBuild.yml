@@ -80,8 +80,8 @@ jobs:
           cp -f devices/common/.config .config
           printf '\n' >> .config
           cat devices/${TARGET}/.config >> .config
-          sed -i '/CONFIG_PACKAGE_geoview/d; /CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Geoview/d' .config
-          printf '%s\n' '# CONFIG_PACKAGE_geoview is not set' '# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Geoview is not set' 'CONFIG_PACKAGE_conntrack=y' >> .config
+          sed -i '/CONFIG_PACKAGE_geoview/d; /CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Geoview/d; /CONFIG_PACKAGE_sing-box/d; /CONFIG_PACKAGE_luci-app-passwall_INCLUDE_SingBox/d' .config
+          printf '%s\n' '# CONFIG_PACKAGE_geoview is not set' '# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Geoview is not set' '# CONFIG_PACKAGE_sing-box is not set' '# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_SingBox is not set' 'CONFIG_PACKAGE_conntrack=y' >> .config
           bash devices/${TARGET}/diy.sh
           cp -Rf ./diy/* ./ 2>/dev/null || true
           cp -rn devices/common/patches devices/${TARGET}/ 2>/dev/null || true
