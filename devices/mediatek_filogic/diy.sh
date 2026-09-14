@@ -21,6 +21,16 @@ if "IMAGE/factory.ubi := append-ubi" not in block:
 path.write_text(data)
 PY
 
+# Set the owner password from a GitHub Actions secret. Only the one-way hash is
+# copied into the image; the plaintext secret is never written to the source tree.
+if [ -z "${TK_ROOT_PASSWORD:-}" ]; then
+  echo "TK_ROOT_PASSWORD is required" >&2
+  exit 1
+fi
+root_hash="$(printf '%s' "$TK_ROOT_PASSWORD" | openssl passwd -6 -stdin)"
+sed -i "s#^root:[^:]*:#root:${root_hash}:#" package/base-files/files/etc/shadow
+unset TK_ROOT_PASSWORD root_hash
+
 # TK跨境系统 root filesystem overlay (contains no user nodes, MACs or credentials)
 mkdir -p files
 base64 -d "$SHELL_FOLDER/tk-crossborder-overlay.tar.gz.b64" > /tmp/tk-crossborder-overlay.tar.gz
