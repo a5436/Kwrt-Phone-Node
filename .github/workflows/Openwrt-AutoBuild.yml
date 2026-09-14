@@ -24,7 +24,7 @@ jobs:
       TARGET: mediatek_filogic
     steps:
       - name: Checkout custom files
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Free disk space
         uses: jlumbroso/free-disk-space@main
@@ -87,7 +87,15 @@ jobs:
           cp -rn devices/common/patches devices/${TARGET}/ 2>/dev/null || true
           find "devices/${TARGET}/patches" -maxdepth 1 -type f -name '*.revert.patch' -print0 2>/dev/null | sort -z | xargs -0 -r -n 1 sh -c 'patch -d . -R --no-backup-if-mismatch -p1 -F 1 -i "$0"' || true
           find "devices/${TARGET}/patches" -maxdepth 1 -type f -name '*.patch' ! -name '*.revert.patch' ! -name '*.bin.patch' -print0 2>/dev/null | sort -z | xargs -0 -r -n 1 sh -c 'patch -d . --no-backup-if-mismatch -p1 -F 1 -i "$0"' || true
-
+     
+      - name: Disable unused RTL8189ES driver
+        working-directory: openwrt
+        run: |
+          sed -i '/CONFIG_PACKAGE_rtl8189es/d' .config
+          echo '# CONFIG_PACKAGE_rtl8189es is not set' >> .config
+          make defconfig
+          grep -i rtl8189es .config || true
+     
       - name: Resolve configuration
         working-directory: openwrt
         run: |
