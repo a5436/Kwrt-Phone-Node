@@ -3,6 +3,10 @@ set -e
 shopt -s extglob
 SHELL_FOLDER=$(dirname $(readlink -f "$0"))
 
+# Use Argon for the complete LuCI shell while retaining the dedicated TK pages.
+rm -rf package/luci-theme-argon
+git clone --depth 1 --branch master https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
+
 sed -i -E -e 's/ ?root=\/dev\/fit0 rootwait//' -e "/rootdisk =/d" -e '/bootargs.* = ""/d' target/linux/mediatek/dts/*{qihoo-360t7,netcore-n60*,h3c-magic-nx30-pro,jdcloud-re-cp-03,cmcc-rax3000m,jcg-q30-pro,tplink-tl-xdr*,abt-asr3000,komi-a31,nokia-ea0326gmp,bt-r320}*.dts*
 
 # Produce a complete persistent UBI image for older U-Boot installations that
