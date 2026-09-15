@@ -107,7 +107,26 @@ jobs:
       - name: Download packages
         working-directory: openwrt
         run: make download -j8
+        
+      - name: Check Go toolchain
+        working-directory: openwrt
+        run: |
+          echo "===== System Go ====="
+          which go || true
+          go version || true
 
+          echo "===== OpenWrt Go directories ====="
+          find staging_dir -maxdepth 5 -type f -name go -path '*/bin/go' -print 2>/dev/null || true
+
+          echo "===== OpenWrt Go versions ====="
+          for g in $(find staging_dir -maxdepth 5 -type f -name go -path '*/bin/go' 2>/dev/null); do
+            echo "---- $g ----"
+            "$g" version || true
+          done
+
+          echo "===== Xray Go requirement ====="
+          grep '^go ' feeds/kiddin9/xray-core/go.mod 2>/dev/null || true
+          grep -R "GO_VERSION" feeds/kiddin9/golang 2>/dev/null | head -30 || true
       - name: Build firmware
         working-directory: openwrt
         run: |
