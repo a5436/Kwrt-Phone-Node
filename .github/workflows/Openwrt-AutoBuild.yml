@@ -92,7 +92,9 @@ jobs:
         working-directory: openwrt
         run: |
           sed -i '/CONFIG_PACKAGE_rtl8189es/d' .config
+          sed -i '/CONFIG_PACKAGE_kmod-rtl8189es/d' .config
           echo '# CONFIG_PACKAGE_rtl8189es is not set' >> .config
+          echo '# CONFIG_PACKAGE_kmod-rtl8189es is not set' >> .config
           make defconfig
           grep -i rtl8189es .config || true
      
