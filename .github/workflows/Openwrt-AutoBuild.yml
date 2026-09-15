@@ -22,6 +22,7 @@ jobs:
     env:
       TZ: Asia/Shanghai
       TARGET: mediatek_filogic
+
     steps:
       - name: Checkout custom files
         uses: actions/checkout@v5
@@ -66,28 +67,64 @@ jobs:
             git clone -b "$branch" --depth 1 --filter=blob:none --sparse "$rurl" "$tmpdir"
             cd "$tmpdir"
             git sparse-checkout set "$@"
-            if [[ "$mv_mode" != "mv" ]]; then cp -rn ./* "$rootdir/"; else mv -n "$@"/* "$rootdir/$@/"; fi
+            if [[ "$mv_mode" != "mv" ]]; then
+              cp -rn ./* "$rootdir/"
+            else
+              mv -n "$@"/* "$rootdir/$@/"
+            fi
             cd "$rootdir"
             rm -rf "$tmpdir"
           }
+
           export -f git_clone_path
+
           cp -rf devices/common/. openwrt/
           cp -rf devices/${TARGET}/. openwrt/
           cp -rf devices openwrt/
+
           cd openwrt
+
           sed -i '1a REPO_TOKEN=' devices/common/diy.sh
           bash devices/common/diy.sh
+
           cp -f devices/common/.config .config
           printf '\n' >> .config
           cat devices/${TARGET}/.config >> .config
+
           sed -i '/CONFIG_PACKAGE_geoview/d; /CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Geoview/d; /CONFIG_PACKAGE_sing-box/d; /CONFIG_PACKAGE_luci-app-passwall_INCLUDE_SingBox/d' .config
-          printf '%s\n' '# CONFIG_PACKAGE_geoview is not set' '# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Geoview is not set' '# CONFIG_PACKAGE_sing-box is not set' '# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_SingBox is not set' 'CONFIG_PACKAGE_conntrack=y' >> .config
+
+          printf '%s\n' \
+            '# CONFIG_PACKAGE_geoview is not set' \
+            '# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Geoview is not set' \
+            '# CONFIG_PACKAGE_sing-box is not set' \
+            '# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_SingBox is not set' \
+            'CONFIG_PACKAGE_conntrack=y' >> .config
+
           bash devices/${TARGET}/diy.sh
+
           cp -Rf ./diy/* ./ 2>/dev/null || true
           cp -rn devices/common/patches devices/${TARGET}/ 2>/dev/null || true
-          find "devices/${TARGET}/patches" -maxdepth 1 -type f -name '*.revert.patch' -print0 2>/dev/null | sort -z | xargs -0 -r -n 1 sh -c 'patch -d . -R --no-backup-if-mismatch -p1 -F 1 -i "$0"' || true
-          find "devices/${TARGET}/patches" -maxdepth 1 -type f -name '*.patch' ! -name '*.revert.patch' ! -name '*.bin.patch' -print0 2>/dev/null | sort -z | xargs -0 -r -n 1 sh -c 'patch -d . --no-backup-if-mismatch -p1 -F 1 -i "$0"' || true
-     
+
+          find "devices/${TARGET}/patches" \
+            -maxdepth 1 \
+            -type f \
+            -name '*.revert.patch' \
+            -print0 2>/dev/null |
+            sort -z |
+            xargs -0 -r -n 1 sh -c \
+            'patch -d . -R --no-backup-if-mismatch -p1 -F 1 -i "$0"' || true
+
+          find "devices/${TARGET}/patches" \
+            -maxdepth 1 \
+            -type f \
+            -name '*.patch' \
+            ! -name '*.revert.patch' \
+            ! -name '*.bin.patch' \
+            -print0 2>/dev/null |
+            sort -z |
+            xargs -0 -r -n 1 sh -c \
+            'patch -d . --no-backup-if-mismatch -p1 -F 1 -i "$0"' || true
+
       - name: Disable unused RTL8189ES driver
         working-directory: openwrt
         run: |
@@ -95,42 +132,60 @@ jobs:
           sed -i '/CONFIG_PACKAGE_kmod-rtl8189es/d' .config
           echo '# CONFIG_PACKAGE_rtl8189es is not set' >> .config
           echo '# CONFIG_PACKAGE_kmod-rtl8189es is not set' >> .config
+
           make defconfig
+
           grep -i rtl8189es .config || true
-     
+
       - name: Resolve configuration
         working-directory: openwrt
         run: |
           make defconfig
+
           grep -E 'CONFIG_TARGET_DEVICE.*ax6000|CONFIG_PACKAGE_(luci-app-passwall|xray-core)|CONFIG_TARGET_ROOTFS_INITRAMFS' .config
 
       - name: Download packages
         working-directory: openwrt
-        run: make download -j8
-        
-      - name: Build firmware
-        working-directory: openwrt
         run: |
-          echo "===== Build Go 1.27 host compiler ====="
-          make package/feeds/kiddin9/golang1.27/host/compile -j1 V=s || true
+          make download -j8
 
-          echo "===== Check Go after Go 1.27 build ====="
-          find staging_dir -type f -name go -path '*/bin/go' -print 2>/dev/null || true
+      - name: Fix Go 1.27 for Xray
+        working-directory: openwrt
+        shell: bash
+        run: |
+          set -e
 
-          for g in $(find staging_dir -type f -name go -path '*/bin/go' 2>/dev/null); do
-            echo "===== $g ====="
-            "$g" version || true
-          done
+          echo "===== Build kiddin9 Go 1.27 ====="
+          make package/feeds/kiddin9/golang1.27/host/compile -j1 V=s
 
-          echo "===== Go default configuration ====="
-          grep -R "GO_DEFAULT_VERSION" feeds/kiddin9/golang feeds/packages/lang/golang 2>/dev/null | head -50 || true
+          GO127="$PWD/staging_dir/hostpkg/lib/go-1.27/bin/go"
 
-          echo "===== Xray Makefile Go settings ====="
-          grep -n -E 'GO_VERSION|GO_PKG|DEPENDS|golang' feeds/kiddin9/xray-core/Makefile || true
+          if [ ! -x "$GO127" ]; then
+            echo "ERROR: Go 1.27 was not generated."
+            exit 1
+          fi
 
-          echo "===== Start firmware build ====="
-          make -j$(nproc) || make -j1 V=s   
-          
+          echo "===== Go 1.27 ====="
+          "$GO127" version
+
+          echo "===== Change packages Golang default 1.26 -> 1.27 ====="
+
+          sed -i \
+            's/^GO_DEFAULT_VERSION:=1\.26$/GO_DEFAULT_VERSION:=1.27/' \
+            feeds/packages/lang/golang/golang-values.mk
+
+          grep '^GO_DEFAULT_VERSION' \
+            feeds/packages/lang/golang/golang-values.mk
+
+          echo "===== Point go-1.26 path to Go 1.27 ====="
+
+          rm -rf staging_dir/hostpkg/lib/go-1.26
+          ln -s go-1.27 staging_dir/hostpkg/lib/go-1.26
+
+          echo "===== Verify Xray Go ====="
+
+          staging_dir/hostpkg/lib/go-1.26/bin/go version
+
       - name: Build firmware
         working-directory: openwrt
         run: |
@@ -139,13 +194,26 @@ jobs:
       - name: Name TK CrossBorder images
         run: |
           mkdir -p output
-          find openwrt/bin/targets/mediatek/filogic -maxdepth 1 -type f \( -name '*redmi-router-ax6000*' -o -name 'sha256sums' -o -name '*.manifest' \) -exec cp -v {} output/ \;
+
+          find openwrt/bin/targets/mediatek/filogic \
+            -maxdepth 1 \
+            -type f \
+            \( -name '*redmi-router-ax6000*' \
+               -o -name 'sha256sums' \
+               -o -name '*.manifest' \) \
+            -exec cp -v {} output/ \;
+
           cd output
+
           for file in *redmi-router-ax6000*; do
             [ -e "$file" ] || continue
-            mv "$file" "${file/openwrt-mediatek-filogic-xiaomi_redmi-router-ax6000-ubootmod/tk-crossborder-redmi-ax6000}"
+
+            mv "$file" \
+              "${file/openwrt-mediatek-filogic-xiaomi_redmi-router-ax6000-ubootmod/tk-crossborder-redmi-ax6000}"
           done
+
           test -n "$(find . -maxdepth 1 -name '*factory.ubi' -print -quit)"
+
           sha256sum * > TK-CrossBorder-SHA256SUMS.txt
 
       - name: Upload TK CrossBorder firmware
