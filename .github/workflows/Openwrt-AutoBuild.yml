@@ -205,13 +205,6 @@ jobs:
 
           cd output
 
-          for file in *redmi-router-ax6000*; do
-            [ -e "$file" ] || continue
-
-            mv "$file" \
-              "${file/openwrt-mediatek-filogic-xiaomi_redmi-router-ax6000-ubootmod/tk-crossborder-redmi-ax6000}"
-          done
-
           test -n "$(find . -maxdepth 1 -name '*factory.ubi' -print -quit)"
 
           sha256sum * > TK-CrossBorder-SHA256SUMS.txt
